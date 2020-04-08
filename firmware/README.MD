@@ -50,6 +50,25 @@ A Output - The CV sequence output
 
 B Output - Sends a pulse if the LSB in the shift register is '1'. You can use this in conjunction with the CV sequence to create interesting patterns.
 
+
+## PolyCrossClock
+
+A Clock Generator with polyrhtymic divisions that hard sync or drift when the division is a non-integer of the beat. A cross-rhtyhm generator 
+
+Clock in - Unused
+
+Potentiometers from top to bottom:
+1. Tempo - Clock Tempo from 30BPM to Really Fast
+2. Length - the divions the clock from 0 to 16 
+3. Cross - shifts the sequence right this number of steps. Scales from 1 to Length. 1 will play every division, 2 every other, etc
+4. Randomness - The likelyhood of a pulse state being inverted. At full counter-clockwise, 0 randomness is added. At full clockwise every pulse will be inverted (no pulse becomes pulse, pulse becomes no pulse). In between min and max, the sequence will change at every iteration. The 'coin' is flipped every time a pulse is about to be sent out.
+
+Toggle Switch - Engages a Division Quantizer. Right is quantized, Left is unquantized.
+
+A Output - Clock Trigger
+
+B Output - Clock Division output
+
 ## Template
 
 A Simple template to get you started with writing your own Cascadence code. Includes the DAC functions and pin definitions so all the hard work is done for you.
