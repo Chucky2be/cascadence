@@ -37,9 +37,11 @@ const int SCK = 4;
 const int PIN_CS = 5;
 
 unsigned int values[4]; //Global array to store potentiometer values
-byte switchValue = 0;
 
 /// Clock Sketch Specific
+byte switchValue = 0;
+unsigned int previousValues[4];
+
 // 1000 micro seconds in a millisecond => 1 000 000 micros in a second
 unsigned long now;
 unsigned long nextClockTick;
@@ -106,11 +108,11 @@ void loop() {
      // division tick
     if ( now >= nextDivisionTick ){
       nextDivisionTick = now + divisionDur;
-      divisionPulseOff = now + pulseDur;
-      //if ( random(1022)+1 < randomness ){
+      if ( random(1024) > randomness ){
         setOutput( B, GAIN_2, NO_SHTDWN, 0xFFF );   
+        divisionPulseOff = now + pulseDur;
         divisionPulse = false;
-      //} 
+      } 
      } else if ( !divisionPulse ){
       if ( now >= divisionPulseOff ){
         setOutput( B, GAIN_2, NO_SHTDWN, 0 );
@@ -139,12 +141,14 @@ void updatevalues(void){
 
   divisionDur = tickDur / divisions * cross; 
 
-  if( sync != switchValue ){
-    nextClockTick = micros();
+  if( !sync && sync != switchValue ){
     nextDivisionTick = nextClockTick;
   }
-  switchValue = digitalRead( SW );
-  
+
+  switchValue = sync;
+  for (x = 0; x < 4; x++){
+    previousValues[x] = values[x];
+  }
 }
 
 void setOutput(byte channel, byte gain, byte shutdown, unsigned int val){
