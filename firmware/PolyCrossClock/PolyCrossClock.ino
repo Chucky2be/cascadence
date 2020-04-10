@@ -37,6 +37,7 @@ const int SCK = 4;
 const int PIN_CS = 5;
 
 unsigned int values[4]; //Global array to store potentiometer values
+byte switchValue = 0;
 
 /// Clock Sketch Specific
 // 1000 micro seconds in a millisecond => 1 000 000 micros in a second
@@ -53,12 +54,13 @@ unsigned long divisionDur;
 unsigned long divisionPulseOff;   
 boolean divisionPulse = true;
 
-// Adapted From EuclideanSequencer
 #define MAXSTEPLENGTH 15  //+1 because 0 is a step = 16 is the step length
 unsigned char cross = 1;
-unsigned char divisions = 1;
+float divisions = 1.0;
 unsigned char randomness = 0;
 unsigned char stepnumber = 0;
+
+boolean sync; 
 
 void setup(){
 
@@ -77,18 +79,13 @@ void setup(){
   pinMode(PIN_CS, OUTPUT);  
 }
 
-
-
 void loop() {
   now = micros();
   
   if(digitalRead(CLK_IN) == LOW)  //we've received a clock pulse!
     {
-      //setOutput(B, GAIN_2, NO_SHTDWN, 2000);
-      //B or A to choose channels
-      //GAIN_2 or GAIN_1 to choose 1x gain or 2x gain (I always use 2x)
-      //NO_SHTDWN or SHTDWN to disable the DAC_CS
-      //2000 - is the value out of 4096 to send out to the DAC
+      nextClockTick = now;
+      nextDivisionTick = now;
     }
     
     updatevalues();//subroutine to grab the 4 pot values
@@ -105,77 +102,51 @@ void loop() {
        didPulse = true;
       }
     }
-
-
     
      // division tick
     if ( now >= nextDivisionTick ){
-      setOutput( B, GAIN_2, NO_SHTDWN, 0xFFF );   
       nextDivisionTick = now + divisionDur;
       divisionPulseOff = now + pulseDur;
-      divisionPulse = false;
+      //if ( random(1022)+1 < randomness ){
+        setOutput( B, GAIN_2, NO_SHTDWN, 0xFFF );   
+        divisionPulse = false;
+      //} 
      } else if ( !divisionPulse ){
       if ( now >= divisionPulseOff ){
         setOutput( B, GAIN_2, NO_SHTDWN, 0 );
         divisionPulse = true;   
       } 
-     }
-     /*
-      pulse=false;
-      if(bitRead(seq[B],offset_stepnumber) == 1) //if there's a pulse
-        pulse = true;
-      if (random(4096) <= randomness ) // might be better to set this to analogReadResolution?
-        pulse = !pulse;
-      if(pulse == 1)
-        SendPulse(A); //send one
-  
-      stepnumber++;
-      if(stepnumber>MAXSTEPLENGTH)
-      {
-        stepnumber = 0;
-      }
-
-      /// stepnumber = ++stepnumber % MAXSTEPLENGTH;
-     
-     */
-    
+     }   
 }
 
 
 void updatevalues(void){
-  
-  /*
-   * TODO: if switch is left quantized, otherwise quantized? 
-  if (SW == HIGH){
-  }else{
-  }
-  */
   
   unsigned char x;
   for( x=0; x < 4 ; x++ ){
     values[x] = analogRead( POTS[x] );  
   }
 
-  tickDur = map( values[0], 0, 1023, 100000, 2000000 );
-  
-  //From EuclideanSequencer
-  divisions = map( values[1],0,1023,1,MAXSTEPLENGTH+1 );
-  cross  = map( values[2],0,1023,1,MAXSTEPLENGTH+1 );
-  randomness = map( values[3],0,1023,0,MAXSTEPLENGTH );
+  sync = digitalRead( SW );
 
-  divisionDur = tickDur / divisions; 
+  tickDur = map( values[0], 0, 1023, 2000000, 100000 );
+  divisions = ( (float) values[1] / 1023.0 ) * (float) MAXSTEPLENGTH + 1;
+  if ( sync ){
+      divisions = floor(divisions);
+  }
+  cross  = map( values[2], 0, 1023, 1, 8 );
+  randomness = values[3];
+
+  divisionDur = tickDur / divisions * cross; 
+
+  if( sync != switchValue ){
+    nextClockTick = micros();
+    nextDivisionTick = nextClockTick;
+  }
+  switchValue = digitalRead( SW );
   
 }
 
-/*
- * Not using in order to avoid blocking
-void SendPulse (boolean chan) //Sends a 40ms trigger. This function blocks
-{
-  setOutput(chan, GAIN_2, NO_SHTDWN, 0xFFF);
-  delay(40);
-  setOutput(chan, GAIN_2, NO_SHTDWN, 0);
-}
-*/
 void setOutput(byte channel, byte gain, byte shutdown, unsigned int val){
   
   byte lowByte = val & 0xff;
@@ -189,19 +160,4 @@ void setOutput(byte channel, byte gain, byte shutdown, unsigned int val){
   shiftOut(MOSI,SCK,MSBFIRST,highByte);
   shiftOut(MOSI,SCK,MSBFIRST,lowByte);
   digitalWrite(PIN_CS, HIGH);
-}
-
-
-// Function to find the binary length of a number by counting bitwise 
-int findlength(long int bnry){
-  boolean lengthfound = false;
-  int length=1; // no number can have a length of zero - single 0 has a length of one, but no 1s for the sytem to count
-  for (int q=32;q>=0;q--){
-    int r=bitRead(bnry,q);
-    if(r==1 && lengthfound == false){
-      length=q+1;
-      lengthfound = true;
-    }
-  }
-  return length;
 }
